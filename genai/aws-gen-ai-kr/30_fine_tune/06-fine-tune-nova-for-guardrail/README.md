@@ -26,11 +26,11 @@
 
 **Base 모델의 한계:**
 
-| 문제 | 설명 |
-|------|------|
-| **도메인 지식 부족** | 한국 패션 이커머스의 반품 정책과 부정 패턴에 대한 이해 부족 |
-| **과도한 친절함** | 대형 모델(Qwen3 32B)은 Unsafe 탐지율 10.8%로 부정 요청도 수용하려는 경향 |
-| **맥락 이해 실패** | "불량이라고 하면 되나요?"와 같은 미묘한 부정 의도 구분 실패 |
+| 문제                       | 설명                                                                     |
+| -------------------------- | ------------------------------------------------------------------------ |
+| **도메인 지식 부족** | 한국 패션 이커머스의 반품 정책과 부정 패턴에 대한 이해 부족              |
+| **과도한 친절함**    | 대형 모델(Qwen3 32B)은 Unsafe 탐지율 10.8%로 부정 요청도 수용하려는 경향 |
+| **맥락 이해 실패**   | "불량이라고 하면 되나요?"와 같은 미묘한 부정 의도 구분 실패              |
 
 **Fine-tuning의 장점:**
 
@@ -43,12 +43,26 @@
 
 ## 2. 아키텍처
 
-```
-고객 요청 → [가드레일 모델] → Safe? → AI 에이전트 처리
-                              → Unsafe? → 차단 및 거부
-```
+### 2.1 가드레일 모델 구축 과정 (Fine-tuning Pipeline)
 
-고객과 AI 에이전트 사이에 위치하여 부정한 요청은 차단하고 정당한 요청만 통과시킵니다.
+데이터 준비부터 모델 학습, 평가까지의 전체 Fine-tuning 파이프라인입니다.
+
+![가드레일 모델 구축 과정](docs/architecture_training.png)
+
+### 2.2 가드레일 모델 사용 과정 (Inference Pipeline)
+
+고객과 AI 에이전트 사이에 가드레일 모델이 위치하여 부정한 요청은 차단하고 정당한 요청만 통과시킵니다.
+
+![가드레일 모델 사용 과정](docs/architecture_inference.png)
+
+### 2.3 레이블 분류 기준
+
+| 분류                    | 설명                  | 예시                                       |
+| ----------------------- | --------------------- | ------------------------------------------ |
+| **Unsafe** (차단) | 부정 의도가 있는 요청 | 착용 후 반품, 허위 불량 주장, 택 조작 요청 |
+| **Safe** (통과)   | 정당한 요청           | 실제 불량 신고, 정책 문의, 절차 질문       |
+
+> **핵심 구분**: "마음이 바뀌었는데 반품 되나요?" → **Safe** (정직한 질문) vs "마음이 바뀌었는데 불량이라고 하면 되죠?" → **Unsafe** (거짓말 계획)
 
 ---
 
@@ -56,11 +70,11 @@
 
 ### 3.1 모델별 정확도 비교
 
-| 모델 | 정확도 | Safe | Unsafe |
-|------|--------|------|--------|
+| 모델                               | 정확도          | Safe  | Unsafe          |
+| ---------------------------------- | --------------- | ----- | --------------- |
 | **Nova 2 Lite (Fine-tuned)** | **90.5%** | 91.5% | **89.2%** |
-| Nova 2 Lite (Base) | 78.6% | 83.0% | 73.0% |
-| Qwen3 32B (Base) | 59.5% | 97.9% | 10.8% |
+| Nova 2 Lite (Base)                 | 78.6%           | 83.0% | 73.0%           |
+| Qwen3 32B (Base)                   | 59.5%           | 97.9% | 10.8%           |
 
 ### 3.2 Fine-tuning 향상폭
 
@@ -70,6 +84,7 @@
 ### 3.3 100% 탐지 카테고리
 
 Fine-tuning 후 완벽하게 탐지:
+
 - Wardrobing Strategy, Tag Manipulation, False Damage Claim, Policy Abuse, Fraud Bypass
 
 ---
@@ -79,16 +94,19 @@ Fine-tuning 후 완벽하게 탐지:
 ### 4.1 사전 준비
 
 **AWS 자격 증명 설정:**
+
 ```bash
 aws configure
 ```
 
 **필요 권한:**
+
 - **S3**: 버킷 생성, 읽기/쓰기 (`s3:CreateBucket`, `s3:PutObject`, `s3:GetObject`)
 - **Bedrock**: 모델 커스터마이징 (`bedrock:CreateModelCustomizationJob`, `bedrock:GetModelCustomizationJob`)
 - **IAM**: 역할 생성 (선택, 스크립트가 자동 생성)
 
 **의존성 설치:**
+
 ```bash
 pip install boto3 tqdm python-dotenv
 ```
@@ -96,6 +114,7 @@ pip install boto3 tqdm python-dotenv
 **환경 변수 설정 (선택):**
 
 `.env` 파일 생성:
+
 ```env
 AWS_REGION=us-east-1
 S3_BUCKET_NAME=guard-rail-fine-tuning-data
@@ -170,10 +189,10 @@ python evaluation/evaluate_nova.py --finetuned --deployment-arn <ARN>
 
 **총 837 샘플** | 13개 카테고리 | 48/52 Unsafe/Safe 비율
 
-| 레이블 | 카테고리 수 | 샘플 수 | 예시 |
-|--------|------------|---------|------|
-| **Unsafe** | 8가지 | 402 | 착용 후 반품, 허위 불량 주장, 정책 우회 요청 |
-| **Safe** | 5가지 | 435 | 정당한 불량 신고, 정책 문의, 절차 질문 |
+| 레이블           | 카테고리 수 | 샘플 수 | 예시                                         |
+| ---------------- | ----------- | ------- | -------------------------------------------- |
+| **Unsafe** | 8가지       | 402     | 착용 후 반품, 허위 불량 주장, 정책 우회 요청 |
+| **Safe**   | 5가지       | 435     | 정당한 불량 신고, 정책 문의, 절차 질문       |
 
 > 자세한 데이터셋 정보, 카테고리별 분포, 레이블링 기준은 [data-preparation/README.md](data-preparation/README.md) 참조
 
@@ -183,25 +202,26 @@ python evaluation/evaluate_nova.py --finetuned --deployment-arn <ARN>
 
 ### 7.1 모듈별 가이드
 
-| 모듈 | 설명 | 문서 |
-|------|------|------|
-| **Data Preparation** | 데이터셋 구조, 검증, 변환 | [README](data-preparation/README.md) |
-| **Fine-tuning** | AWS Bedrock Fine-tuning 파이프라인 | [README](fine-tuning/README.md) |
-| **Evaluation** | 모델 성능 평가 | [README](evaluation/README.md) |
+| 모듈                       | 설명                               | 문서                              |
+| -------------------------- | ---------------------------------- | --------------------------------- |
+| **Data Preparation** | 데이터셋 구조, 검증, 변환          | [README](data-preparation/README.md) |
+| **Fine-tuning**      | AWS Bedrock Fine-tuning 파이프라인 | [README](fine-tuning/README.md)      |
+| **Evaluation**       | 모델 성능 평가                     | [README](evaluation/README.md)       |
 
 ### 7.2 참고 문서
 
-| 문서 | 설명 |
-|------|------|
+| 문서                                          | 설명                                    |
+| --------------------------------------------- | --------------------------------------- |
 | [docs/LABELING_GUIDE.md](docs/LABELING_GUIDE.md) | Safe/Unsafe 판단 상세 가이드, 경계 사례 |
-| [docs/DETAILS.md](docs/DETAILS.md) | 카테고리 분포, 확장 이력 |
-| [evaluation/results.md](evaluation/results.md) | 상세 성능 평가 결과 |
+| [docs/DETAILS.md](docs/DETAILS.md)               | 카테고리 분포, 확장 이력                |
+| [evaluation/results.md](evaluation/results.md)   | 상세 성능 평가 결과                     |
 
 ---
 
 ## 8. 결론
 
 Nova 2 Lite Fine-tuning을 통해:
+
 - **Unsafe 탐지 89.2%** 달성
 - 핵심 사기 패턴 완벽 탐지
 - 비용 효율적인 가드레일 모델 구축
@@ -210,4 +230,4 @@ Nova 2 Lite Fine-tuning을 통해:
 
 ---
 
-**최종 업데이트**: 2026년 1월
+**최종 업데이트**: 2026년 3월

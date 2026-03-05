@@ -51,15 +51,13 @@ python fine-tuning/run_fine_tuning.py
 
 ## 하이퍼파라미터
 
-| 파라미터 | 기본값 | 설명 |
-|----------|--------|------|
-| Base Model | amazon.nova-2-lite-v1:0:256k | Nova 2 Lite (256k 컨텍스트) |
-| Epochs | 3 | 훈련 에포크 수 |
-| Batch Size | 1 | 배치 크기 |
-| Learning Rate | 1e-5 | 학습률 |
-| Warmup Steps | 0 | 웜업 스텝 |
-
-> **참고**: Nova 2.0은 Validation 데이터셋을 지원하지 않습니다.
+| 파라미터      | 기본값                       | 설명                        |
+| ------------- | ---------------------------- | --------------------------- |
+| Base Model    | amazon.nova-2-lite-v1:0:256k | Nova 2 Lite (256k 컨텍스트) |
+| Epochs        | 3                            | 훈련 에포크 수              |
+| Batch Size    | 1                            | 배치 크기                   |
+| Learning Rate | 1e-5                         | 학습률                      |
+| Warmup Steps  | 0                            | 웜업 스텝                   |
 
 ---
 
@@ -67,10 +65,10 @@ python fine-tuning/run_fine_tuning.py
 
 Fine-tuning 완료 후 `evaluation/results/` 폴더에 생성되는 파일:
 
-| 파일 | 설명 |
-|------|------|
-| `nova_2_lite_job_info.json` | Fine-tuning 작업 정보 (Job ARN, 모델명 등) |
-| `nova_2_lite_final_status.json` | 최종 상태 및 메트릭 |
+| 파일                              | 설명                                       |
+| --------------------------------- | ------------------------------------------ |
+| `nova_2_lite_job_info.json`     | Fine-tuning 작업 정보 (Job ARN, 모델명 등) |
+| `nova_2_lite_final_status.json` | 최종 상태 및 메트릭                        |
 
 ---
 
@@ -87,13 +85,12 @@ Fine-tuning이 완료되면:
 
 1. **평가**: `evaluation/` 폴더의 스크립트로 모델 성능 평가
 2. **배포**: 온디맨드 추론을 위한 Custom Model Deployment 생성
-3. **프로덕션**: Provisioned Throughput 구매 (프로덕션 사용 시)
 
 ### Custom Model Deployment 생성 (AWS Console)
 
 1. Amazon Bedrock 콘솔 접속
 2. Custom models → 생성된 모델 선택
-3. "Create custom model deployment" 클릭
+3. "Setup Inference" 클릭 후 """Deploy for on-demand" 클릭 (Provisioned Throughput도 가능하나, Nova는 On-demand가 권장됨)
 4. 배포 완료 후 Deployment ARN 확인
 
 ---
@@ -101,40 +98,17 @@ Fine-tuning이 완료되면:
 ## 비용 고려사항
 
 ### Fine-tuning 비용
+
 - 훈련 토큰 수에 따라 과금
 - Nova 2 Lite는 비용 효율적인 선택
 
 ### 추론 비용
+
 - **On-demand**: 사용량 기반 과금
 - **Provisioned Throughput**: 시간당 고정 비용 (대량 트래픽에 적합)
-
----
-
-## 문제 해결
-
-### IAM 역할 오류
-
-```
-Error: Role cannot be assumed by bedrock.amazonaws.com
-```
-
-해결: 스크립트가 자동으로 `BedrockFineTuningRole` 역할을 생성합니다. 권한이 부족하면 수동으로 생성하세요.
-
-### S3 접근 오류
-
-```
-Error: Access Denied
-```
-
-해결: S3 버킷 정책에 Bedrock 서비스 접근 권한이 있는지 확인하세요.
-
-### 작업 실패
-
-`nova_2_lite_final_status.json`의 `failure_message` 필드를 확인하세요.
 
 ---
 
 ## 관련 문서
 
 - [Amazon Bedrock Custom Models](https://docs.aws.amazon.com/bedrock/latest/userguide/custom-models.html)
-- [Nova 모델 Fine-tuning 가이드](https://docs.aws.amazon.com/bedrock/latest/userguide/nova-fine-tuning.html)
